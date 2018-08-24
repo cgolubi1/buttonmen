@@ -25,8 +25,10 @@ $RANDOMBM_SKILL_ARRAY = array(
   'f', // Focus
   'I', // Insult
   'k', // Konstant
+  '&', // Mad
   'M', // Maximum
   'H', // Mighty
+  '?', // Mood
   'n', // Null
   'o', // Ornery
   'p', // Poison
