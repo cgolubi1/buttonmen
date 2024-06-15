@@ -6,7 +6,8 @@ if [ "$?" = "0" ]; then
 else 
   echo "Creating <%= @buttonmen_db1_name %>"
   echo "CREATE DATABASE <%= @buttonmen_db1_name %>" | mysql -u root
-  echo "GRANT ALL ON <%= @buttonmen_db1_name %>.* TO <%= @buttonmen_db1_user %>@localhost IDENTIFIED BY '<%= @buttonmen_db1_pass %>'" | mysql -u root
+  echo "CREATE USER <%= @buttonmen_db1_user %>@localhost IDENTIFIED WITH mysql_native_password BY '<%= @buttonmen_db1_pass %>'" | mysql -u root
+  echo "GRANT ALL ON <%= @buttonmen_db1_name %>.* TO <%= @buttonmen_db1_user %>@localhost" | mysql -u root
 
   echo "Populating <%= @buttonmen_db1_name %>"
   cd /buttonmen/deploy/database
@@ -20,7 +21,8 @@ if [ "$?" = "0" ]; then
 fi
 echo "Creating <%= @buttonmen_db2_name %>"
 echo "CREATE DATABASE <%= @buttonmen_db2_name %>" | mysql -u root
-echo "GRANT ALL ON <%= @buttonmen_db2_name %>.* TO <%= @buttonmen_db2_user %>@localhost IDENTIFIED BY '<%= @buttonmen_db2_pass %>'" | mysql -u root
+echo "CREATE USER <%= @buttonmen_db2_user %>@localhost IDENTIFIED WITH mysql_native_password BY '<%= @buttonmen_db2_pass %>'" | mysql -u root
+echo "GRANT ALL ON <%= @buttonmen_db2_name %>.* TO <%= @buttonmen_db2_user %>@localhost" | mysql -u root
 echo "Populating <%= @buttonmen_db2_name %>"
 cd /buttonmen/deploy/database
 mysql -u <%= @buttonmen_db2_user%> -p<%= @buttonmen_db2_pass %> <%= @buttonmen_db2_name %> < initialize_all.sql
