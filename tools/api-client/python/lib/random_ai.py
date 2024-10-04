@@ -725,6 +725,7 @@ class LoggingBMClient():
     # Any state that's needed so we can tailor future random decisions based on past ones
     self.decision_state = {
       'cancelled_fire_attacks': 0,
+      'expected_start_turn_status': 'ok',
     }
     self.log = []
 
@@ -842,6 +843,7 @@ class LoggingBMClient():
     return all_skills
 
   def _is_valid_attack_of_type_Berserk(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     attack_skills = {
       'mandatory': [ 'Berserk', ],
       'ok': [
@@ -874,6 +876,7 @@ class LoggingBMClient():
     return (attacker['value'] == defender_sum)
 
   def _is_valid_attack_of_type_Boom(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     attack_skills = {
       'mandatory': [ 'Boom', ],
       'ok': [
@@ -903,6 +906,7 @@ class LoggingBMClient():
     return True
 
   def _is_valid_attack_of_type_Power(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     attack_skills = {
       'ok': [
 	'Berserk', 'Boom', 'Chance', 'Doppelganger', 'Focus',
@@ -948,6 +952,7 @@ class LoggingBMClient():
     return False
 
   def _is_valid_attack_of_type_Shadow(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     attack_skills = {
       'mandatory': [ 'Queer', 'Shadow', ],
       'ok': [
@@ -985,6 +990,7 @@ class LoggingBMClient():
     return False
 
   def _is_valid_attack_of_type_Trip(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     attack_skills = {
       'mandatory': [ 'Trip', ],
       'ok': [
@@ -1089,6 +1095,7 @@ class LoggingBMClient():
     return turbovals
 
   def _is_valid_attack_of_type_Skill(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     self.debug_skill_tries.append("ATT=%s, DEF=%s" % (attackers, defenders))
     attack_skills = {
       'ok': [
@@ -1151,6 +1158,7 @@ class LoggingBMClient():
     return False
 
   def _is_valid_attack_of_type_Rush(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     # Logic here is a little different than some of the other skill checkers.
     # We need to check that the mandatory skill appears in *at least one of*
     # the attacker or the defender, and also that no forbidden skills appear
@@ -1189,6 +1197,7 @@ class LoggingBMClient():
     return (attacker['value'] == defender_sum)
 
   def _is_valid_attack_of_type_Speed(self, attackers, defenders, non_attackers):
+    if self.decision_state['expected_start_turn_status'] == 'failed': return True
     attack_skills = {
       'mandatory': [ 'Speed', ],
       'ok': [
@@ -1405,6 +1414,24 @@ class LoggingBMClient():
     if self.decision_state['cancelled_fire_attacks'] == 0: return True
     return random.random() < (float(1) / (self.decision_state['cancelled_fire_attacks']))
 
+  def _all_known_attack_types(self):
+    funcPrefix = '_game_action_start_turn_find_attack_'
+    return [ x[len(funcPrefix):] for x in sorted(dir(self)) if x.startswith(funcPrefix) ]
+
+  # Given the list of valid attack types, choose one
+  # With low probability, choose an invalid attack type, and expect it to fail.
+  def _choose_attack_type(self, validAttackTypes):
+    invalidAttackTypes = self._all_known_attack_types()
+    if random.random() < 0.01:
+      invalidAttackType = self._random_array_element(invalidAttackTypes)
+      if invalidAttackType not in validAttackTypes:
+        self.decision_state['expected_start_turn_status'] = 'failed'
+        return invalidAttackType
+    chosenAttackType = str(self._random_array_element(validAttackTypes))
+    self.decision_state['expected_start_turn_status'] = 'ok'
+    return chosenAttackType
+
+
   def _game_action_adjust_fire_dice_player(self, b, playerData, opponentData):
     is_power_turndown = 'Power' in self.loaded_data['validAttackTypeArray']
     turndown_choices = []
@@ -1585,7 +1612,7 @@ class LoggingBMClient():
     attackTypes = self.loaded_data['validAttackTypeArray']
     if len(attackTypes) == 0:
       self.bug("No valid attack types found during START_TURN")
-    chosenAttackType = str(self._random_array_element(attackTypes))
+    chosenAttackType = self._choose_attack_type(attackTypes)
     chosenAttackFunction = '_game_action_start_turn_find_attack_%s' % chosenAttackType
     if not hasattr(self, chosenAttackFunction):
       self.bug("LoggingBMClient has no function %s to perform %s attack" % (
@@ -1598,11 +1625,12 @@ class LoggingBMClient():
       self.game_id, self.attacker, self.defender, attack,
       chosenAttackType, self.loaded_data['roundNumber'],
       self.loaded_data['timestamp'], turbo_vals)
-    if not (retval and retval.status == 'ok'):
-      self.bug("API submit_turn(%s, %s, %s, %s, %s, %s, %s, %s) unexpectedly failed: %s" % (
+    if not (retval and retval.status == self.decision_state['expected_start_turn_status']):
+      self.bug("API submit_turn(%s, %s, %s, %s, %s, %s, %s, %s) unexpectedly got status %s, but expected %s: %s" % (
 	self.game_id, self.attacker, self.defender,
 	attack, chosenAttackType, self.loaded_data['roundNumber'],
 	self.loaded_data['timestamp'], turbo_vals,
+        retval.status, self.decision_state['expected_start_turn_status'],
         retval and retval.message or "NULL"))
     self._add_php_pre_action_block(b)
     self.log.append({
