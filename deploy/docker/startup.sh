@@ -4,6 +4,10 @@
 set -e
 set -x
 
+# echo variable for testing
+echo $ECS_CONTAINER_METADATA_URI_V4
+printenv
+
 # System services
 /etc/init.d/rsyslog start
 /etc/init.d/cron start
